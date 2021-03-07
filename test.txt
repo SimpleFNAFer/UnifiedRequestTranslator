@@ -1,0 +1,15 @@
+{
+	"source": "connection string will be here",
+	"modifiers": "modifiers will be here",
+	"requirements":
+	{
+		"type":"requirement",
+		"spec":
+		{
+			"operator":"==",
+			"field":{"parent":null, "name":"id"},
+			"value":{"type":"raw_value", "spec":10}
+		}
+	},
+	"fields":"fields will be here"
+}
