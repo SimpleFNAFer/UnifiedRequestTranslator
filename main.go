@@ -159,7 +159,7 @@ type OrAnd []RequirementExpression
 // Requirement structure
 type Requirement struct {
 	Operator string `json:"operator"`
-	Field Field `json:"FieldString"`
+	Field Field `json:"field"`
 	Value RequirementOperand `json:"value"`
 }
 
