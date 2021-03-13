@@ -1,0 +1,22 @@
+{
+	"source": "[connection string will be here]",
+	"modifiers": "[modifiers will be here]",
+	"requirements":
+	{
+		"type":"requirement",
+		"requirement":
+		{
+			"operator":"eq",
+			"field":{"child":null, "name":"id"},
+			"value":{"type":"raw_value", "spec":10}
+		}
+	},
+	"fields":
+	[
+		{"child":null, "name":"id"},
+		{"child":
+			{"child":null, "name":"Name"},
+		"name":"Fio"
+		}
+	]
+}

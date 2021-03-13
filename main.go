@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
+	"os"
 )
 
 // DisjunctiveNormalizer interface. Undone yet!!!
@@ -29,16 +31,14 @@ func (u UnifiedRequest) UnifiedRequestToSql() string{
 	tmpRequest = "SELECT "
 
 	for _,i := range u.Fields {
-		i.TransferToString(tmpFields)
-		tmpRequest += tmpFields[1:] + ", "
+		tmpFields = i.TransferToString()
+		tmpRequest += tmpFields + ", "
 		tmpFields = ""
 	}
 
 	tmpRequest = tmpRequest[:len(tmpRequest) - 2] + " FROM " + u.Source
-	u.Requirements.ToSqlRequirementExpression()
-	tmpRequest = tmpRequest + " WHERE " + SqlRequirementExpression
+	tmpRequest = tmpRequest + " WHERE " + u.Requirements.ToSqlRequirementExpression()
 
-	defer CleanGlobalVariables()
 	return tmpRequest
 }
 
@@ -86,70 +86,63 @@ func (r RequirementExpression) Normalize() RequirementExpression {
 	return n
 }
 
-// Global variables SqlRequirementExpression and FieldString.
-// Help with recursive ToSqlRequirementExpression method.
-var SqlRequirementExpression string
-var FieldString string
-
 // ToSqlRequirementExpression method. Transforms a RequirementExpression into an SQL condition (after WHERE)
-func (r RequirementExpression) ToSqlRequirementExpression()  {
+func (r RequirementExpression) ToSqlRequirementExpression() string  {
+	var temp string
 	switch r.Type {
 	case "or":
-		SqlRequirementExpression += "("
+		temp = "("
 		for _, i := range r.OrAnd {
-			i.ToSqlRequirementExpression()
-			SqlRequirementExpression += " OR "
+			temp += i.ToSqlRequirementExpression()
+			temp += " OR "
 		}
-		SqlRequirementExpression = SqlRequirementExpression[:len(SqlRequirementExpression) - 4] + ")"
+		return temp[:len(temp) - 4] + ")"
 
 	case "and":
-		SqlRequirementExpression += "("
+		temp = "("
 		for _, i := range r.OrAnd {
-			i.ToSqlRequirementExpression()
-			SqlRequirementExpression += " AND "
+			temp += i.ToSqlRequirementExpression()
+			temp += " AND "
 		}
-		SqlRequirementExpression = SqlRequirementExpression[:len(SqlRequirementExpression) - 5] + ")"
+		return temp[:len(temp) - 5] + ")"
 
 	case "requirement":
-		r.Requirement.Field.TransferToString(FieldString)
-		FieldString = FieldString[1:]
-		SqlRequirementExpression += "(" + FieldString
-		switch r.Requirement.Operator {		//Idea collapse! Not enough information about data type of the FieldString!
-		case "in":
-			SqlRequirementExpression += " IN ("
-			for _,i := range r.Requirement.Value.Spec.([]string) {
-				SqlRequirementExpression += "'" + i + "', "
+		temp = "(" + r.Requirement.Field.TransferToString()
+		switch r.Requirement.Operator {
+		case "in": // Can be done with errors, but I'm not sure!
+			temp += " IN ("
+			for _,i := range r.Requirement.Value.Spec.([]interface{}) {
+				temp += "'" + fmt.Sprint(i) + "', "
 			}
-			SqlRequirementExpression = SqlRequirementExpression[:len(SqlRequirementExpression) - 2] + ")"
+			return temp[:len(temp) - 2] + "))"
 
-		case "not in":
-			SqlRequirementExpression += " NOT IN ("
-			for _,i := range r.Requirement.Value.Spec.([]string) {
-				SqlRequirementExpression += "'" + i + "', "
+		case "not in": // Can be done with errors, but I'm not sure!
+			temp += " NOT IN ("
+			for _,i := range r.Requirement.Value.Spec.([]interface{}) {
+				temp += "'" + fmt.Sprint(i) + "', "
 			}
-			SqlRequirementExpression = SqlRequirementExpression[:len(SqlRequirementExpression) - 2] + ")"
+			return temp[:len(temp) - 2] + "))"
 
 		case "ne":
-			SqlRequirementExpression += " <> '" + r.Requirement.Value.Spec.(string) + "'"
+			return temp + " <> '" + fmt.Sprint(r.Requirement.Value.Spec) + "')"
 
 		case "eq":
-			SqlRequirementExpression += " = '" + r.Requirement.Value.Spec.(string) + "'"
+			return temp + " = '" + fmt.Sprint(r.Requirement.Value.Spec) + "')"
 
 		case "ge":
-			SqlRequirementExpression += " >= '" + r.Requirement.Value.Spec.(string) + "'"
+			return temp + " >= " + fmt.Sprint(r.Requirement.Value.Spec) + ")"
 
 		case "le":
-			SqlRequirementExpression += " <= '" + r.Requirement.Value.Spec.(string) + "'"
+			return temp + " <= " + fmt.Sprint(r.Requirement.Value.Spec) + ")"
 
 		case "gt":
-			SqlRequirementExpression += " > '" + r.Requirement.Value.Spec.(string) + "'"
+			return temp + " > " + fmt.Sprint(r.Requirement.Value.Spec) + ")"
 
 		case "lt":
-			SqlRequirementExpression += " < '" + r.Requirement.Value.Spec.(string) + "'"
+			return temp + " < " + fmt.Sprint(r.Requirement.Value.Spec) + ")"
 		}
-		SqlRequirementExpression += ")"
-		FieldString = ""
 	}
+	return ""
 }
 
 // OrAnd expression structure (transformed into slice)
@@ -169,12 +162,13 @@ type Field struct {
 	Name string `json:"name"`
 }
 
-func (f Field) TransferToString(s string)  {
+func (f Field) TransferToString() string  {
 
 	if f.Child != nil {
-		f.Child.TransferToString(s)
+		return f.Name + "." + f.Child.TransferToString()
+	} else {
+		return f.Name
 	}
-	s = "." + f.Name + s
 }
 
 // RequirementOperand structure
@@ -189,8 +183,12 @@ type Hook struct {
 }
 
 // Receive method. Takes the whole unified request
-func (u UnifiedRequest) Receive(b []byte) UnifiedRequest {
-	err := json.Unmarshal(b, &u)
+func (u UnifiedRequest) Receive(path string) UnifiedRequest {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = json.Unmarshal(b, &u)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -210,11 +208,61 @@ func RequirementOperandDeclarator (r RequirementOperand) { //Error checking not 
 }
 
 // CleanGlobalVariables function. Makes global strings empty.
-func CleanGlobalVariables (){
-	SqlRequirementExpression = ""
-	FieldString = ""
-}
 
 func main() {
+	var input string
+	fmt.Println("Choose the test! " +
+		"\n -If you would like to test test1.json, please, enter 1" +
+		"\n -If you would like to test test2.json, please, enter 2" +
+		"\n -If you have your custom [request].json, please, enter c")
+	_,_ = fmt.Scan(&input)
+	switch input {
+	case "1": Test1()
+	case "2": Test2()
+	case "c": CustomTest()
+	default: fmt.Println("You've entered the wrong statement!")
+	}
+}
 
+// Test1 function. Translates test1.json into an SQL statement and writes the result into the standard output
+func Test1(){
+	ConnectionPath1 := "C:\\Users\\tnche\\OneDrive\\Документы\\GitHub\\UnifiedRequestTranslator\\test1.json"
+
+	fmt.Println("Activated test1.json...Press enter to continue")
+	r := bufio.NewReader(os.Stdin)
+	_,_,_ = r.ReadLine()
+
+	var u UnifiedRequest
+	u = u.Receive(ConnectionPath1)
+	fmt.Println("Request translated into SQL:")
+	fmt.Println("")
+	fmt.Println(u.UnifiedRequestToSql())
+}
+
+// Test2 function. Translates test2.json into an SQL statement and writes the result into the standard output
+func Test2(){
+	ConnectionPath1 := "C:\\Users\\tnche\\OneDrive\\Документы\\GitHub\\UnifiedRequestTranslator\\test2.json"
+
+	fmt.Println("Activated test2.json...Press enter to continue")
+	r := bufio.NewReader(os.Stdin)
+	_,_,_ = r.ReadLine()
+
+	var u UnifiedRequest
+	u = u.Receive(ConnectionPath1)
+	fmt.Println("Request translated into SQL:")
+	fmt.Println("")
+	fmt.Println(u.UnifiedRequestToSql())
+}
+
+// CustomTest function. Allows you to write a connection string manually
+func CustomTest() {
+	fmt.Println("Write down path to .json file:")
+	var ConnectionPath string
+	_, _ = fmt.Scan(&ConnectionPath)
+	fmt.Println("Path received: " + ConnectionPath)
+	var u UnifiedRequest
+	u = u.Receive(ConnectionPath)
+	fmt.Println("Request translated into SQL:")
+	fmt.Println("")
+	fmt.Println(u.UnifiedRequestToSql())
 }

@@ -4,12 +4,19 @@
 	"requirements":
 	{
 		"type":"requirement",
-		"spec":
+		"requirement":
 		{
-			"operator":"==",
-			"field":{"parent":null, "name":"id"},
+			"operator":"eq",
+			"field":{"child":null, "name":"id"},
 			"value":{"type":"raw_value", "spec":10}
 		}
 	},
-	"fields":"fields will be here"
+	"fields":
+	[
+		{"child":null, "name":"id"},
+		{"child":
+			{"child":null, "name":"Name"},
+		"name":"Fio"
+		}
+	]
 }
