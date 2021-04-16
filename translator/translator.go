@@ -104,7 +104,7 @@ func (r RequirementExpression) ToSqlRequirementExpression() string {
 
 	case "and":
 		temp = "(" + r.OrAnd[0].ToSqlRequirementExpression()
-		for _, i := range r.OrAnd {
+		for _, i := range r.OrAnd[1:] {
 			temp += " AND " + i.ToSqlRequirementExpression()
 		}
 		return temp + ")"
