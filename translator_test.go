@@ -94,17 +94,32 @@ var src = []string{
     }
   ]
 }`,
+	`{
+	"requirements": {
+		"type":"requirement",
+		"requirement":{
+			"field":{"child":null, "name":"id"},
+			"operator":"not in",
+			"value":{
+				"type":"raw_value",
+				"spec":[1, 2, 3]
+			}
+		}
+	}
+}`,
 }
 
 var expectedSQL = []string{
 	"SELECT id, Fio.Name FROM [connection string will be here] WHERE (id = '10')",
 	"SELECT id, Fio.Name, Fio.Surname FROM [connection string will be here] WHERE " +
 		"(((Id IN ('10', '11')) OR (Price > 150)) AND (Fio.Name = 'Joakim') AND (Fio.Surname = 'Broden'))",
+	"SELECT * FROM  WHERE (id NOT IN ('1', '2', '3'))",
 }
 
 var expectedES = []string{
 	`{"_source":["id","Fio.Name"],"query":{"term":{"id":10}}}`,
-	`How to make an 'IN' equivalent in ES?`,
+	`{"_source":["id","Fio.Name","Fio.Surname"],"query":{"bool":{"must":[{"bool":{"should":[{"terms":{"Id":[10,11]}},{"range":{"Price":{"gt":150}}}]}},{"term":{"Fio.Name":"Joakim"}},{"term":{"Fio.Surname":"Broden"}}]}}}`,
+	`{"query":{"bool":{"must_not":[{"terms":{"id":[1,2,3]}}]}}}`,
 }
 
 func ReceiveFromStr(s string) (tr.UnifiedRequest, error) {
@@ -131,6 +146,7 @@ func TestToSql(t *testing.T) {
 }
 
 func TestToES(t *testing.T) {
+
 	var (
 		received []byte
 		ur       tr.UnifiedRequest
