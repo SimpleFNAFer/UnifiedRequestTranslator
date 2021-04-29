@@ -21,7 +21,6 @@ type RangeExpression struct {
 }
 
 type Bool struct {
-	// Из примеров можно увидеть что поля should содержат список Query
 	Should  []Query `json:"should,omitempty"`
 	Must    []Query `json:"must,omitempty"`
 	MustNot []Query `json:"must_not,omitempty"`
@@ -30,8 +29,6 @@ type Bool struct {
 func (u UnifiedRequest) UnifiedRequestToES() ESRequest {
 	var tmpRequest ESRequest
 
-	// Это неверно, если длина полей не равна нулю, то ими заполняется tmpRequest.Source
-	// MatchAll тут ни при чем
 	if u.Requirements == nil {
 		tmpRequest.Query.MatchAll = make(map[string]interface{})
 	} else {
